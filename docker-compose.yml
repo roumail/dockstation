@@ -1,0 +1,52 @@
+x-volumes: &dotfiles_and_app_dir
+  - "${VIM_RC_FPATH}:/root/.vimrc" 
+  - "${VIM_CONFIG_DIR}:/root/.vim/custom/"
+  - "${PLUGINS_DIR}:/root/.vim/plugged"
+  - "${HOST_APP_DIR}:/root/workspace"
+  - "${BASH_HISTORY_FPATH}:/root/.bash_history"
+  - "${COC_DATA_DIR}:/coc" 
+
+x-build-args: &build-args
+  args:
+    BASE_IMAGE: ${BASE_IMAGE}
+    DEV_IMAGE_NAME: ${DEV_IMAGE_NAME}
+    DOTFILES_BASENAME: ${DOTFILES_BASENAME}
+
+services:
+  
+  jupyter:
+    build:
+      context: ..
+      dockerfile: dev-env-setup/Dockerfile
+      cache_from:
+        - rohailt/${DEV_IMAGE_NAME}-jupyter
+      cache_to:
+        - type=registry,ref=rohailt/${DEV_IMAGE_NAME}-jupyter
+      <<: *build-args
+      target: jupyter
+    image: rohailt/${DEV_IMAGE_NAME}-jupyter
+    ports:
+      - "8888:8888"
+    stdin_open: true
+    tty: true
+    working_dir: /root/workspace
+    volumes: *dotfiles_and_app_dir 
+
+  vim: 
+    build:
+      context: ..
+      dockerfile: dev-env-setup/Dockerfile
+      <<: *build-args
+      cache_from:
+        - rohailt/${DEV_IMAGE_NAME}-vim_plugins
+      cache_to:
+        - type=registry,ref=rohailt/${DEV_IMAGE_NAME}-vim_plugins
+      target: vim_plugins
+    image: rohailt/${DEV_IMAGE_NAME}-vim_plugins
+    working_dir: /root/workspace
+    stdin_open: true
+    environment:
+      # where extensions are added
+      XDG_CONFIG_HOME: /coc
+    tty: true
+    volumes: *dotfiles_and_app_dir
