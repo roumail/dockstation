@@ -11,13 +11,14 @@ x-build-args: &build-args
     BASE_IMAGE: ${BASE_IMAGE}
     DEV_IMAGE_NAME: ${DEV_IMAGE_NAME}
     DOTFILES_BASENAME: ${DOTFILES_BASENAME}
+    DOCKSTATION_VERSION: ${DOCKSTATION_VERSION}
 
 services:
   
   jupyter:
     build:
-      context: ..
-      dockerfile: dev-env-setup/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       cache_from:
         - rohailt/${DEV_IMAGE_NAME}-jupyter
       cache_to:
@@ -34,8 +35,8 @@ services:
 
   vim: 
     build:
-      context: ..
-      dockerfile: dev-env-setup/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       <<: *build-args
       cache_from:
         - rohailt/${DEV_IMAGE_NAME}-vim_plugins

@@ -5,7 +5,20 @@ FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 ARG DEV_IMAGE_NAME=dev-env
 ARG DOTFILES_BASENAME
-LABEL version="1.0.0"
+# TODO: This system is quite easy to cheat, if the user provides 
+# the right version but doesn't follow the correct schema for the .env
+ARG DOCKSTATION_VERSION
+COPY VERSION /tmp/VERSION
+# Run a version check
+RUN set -eux; \
+    # Read the repo's official version from /tmp/VERSION
+    REPO_VERSION="$(cat /tmp/VERSION)"; \
+    # Compare it to the user-supplied build arg
+    if [ "$REPO_VERSION" != "$DOCKSTATION_VERSION" ]; then \
+      echo "ERROR: .env DOCKSTATION_VERSION=$DOCKSTATION_VERSION, but dockstation/VERSION=$REPO_VERSION. Aborting."; \
+      exit 1; \
+    fi
+LABEL version="${DOCKSTATION_VERSION}"
 LABEL org.opencontainers.image.authors="rohailt"
 LABEL org.opencontainers.image.source="https://github.com/rohailt/dev-env-setup"
 LABEL maintainer.email="sigmagraphinc@gmail.com"
