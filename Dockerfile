@@ -5,22 +5,10 @@ FROM ${BASE_IMAGE} AS base
 ARG BASE_IMAGE
 ARG DEV_IMAGE_NAME=dev-env
 ARG DOTFILES_BASENAME
-# TODO: This system is quite easy to cheat, if the user provides 
-# the right version but doesn't follow the correct schema for the .env
 ARG DOCKSTATION_VERSION
-COPY VERSION /tmp/VERSION
-# Run a version check
-RUN set -eux; \
-    # Read the repo's official version from /tmp/VERSION
-    REPO_VERSION="$(cat /tmp/VERSION)"; \
-    # Compare it to the user-supplied build arg
-    if [ "$REPO_VERSION" != "$DOCKSTATION_VERSION" ]; then \
-      echo "ERROR: .env DOCKSTATION_VERSION=$DOCKSTATION_VERSION, but dockstation/VERSION=$REPO_VERSION. Aborting."; \
-      exit 1; \
-    fi
 LABEL version="${DOCKSTATION_VERSION}"
 LABEL org.opencontainers.image.authors="rohailt"
-LABEL org.opencontainers.image.source="https://github.com/rohailt/dev-env-setup"
+LABEL org.opencontainers.image.source="https://github.com/rohailt/docstation"
 LABEL maintainer.email="sigmagraphinc@gmail.com"
 LABEL org.opencontainers.image.base="$BASE_IMAGE"
 LABEL org.opencontainers.image.name="$DEV_IMAGE_NAME"
@@ -85,8 +73,19 @@ RUN curl -fsSL https://starship.rs/install.sh | sh -s -- -y && \
     curl -fsSL "https://github.com/junegunn/fzf/releases/download/v0.58.0/fzf-0.58.0-linux_${fzf_arch}.tar.gz" -o /tmp/fzf.tar.gz && \
     tar -xzf /tmp/fzf.tar.gz -C /usr/local/bin && \
     chmod +x /usr/local/bin/fzf && \
+    # Install Node.js, npm, and Pyright
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sh && \
+    apt-get update && \
+    apt-get install -y nodejs && \
+    npm install -g ajv-cli dockerfile-language-server-nodejs \
+    bash-language-server \
+    @microsoft/compose-language-service \
+    pyright && \
+    echo "Node.js global packages installed in: $(npm root -g)" && \
     rm /tmp/fzf.tar.gz && \
     rm -rf /var/lib/apt/lists/*
+
+CMD ["/bin/bash"]
 
 # Bash Stage: Default bash command
 FROM base AS bash
@@ -94,20 +93,19 @@ LABEL stage="bash"
 ARG DOTFILES_BASENAME
 LABEL org.opencontainers.image.description="Stage for configuring bash with tools."
 
-# Copy fonts from the previous stage
+# Copy fonts
 COPY --from=fonts /usr/share/fonts /usr/share/fonts
 
-# Copy Starship binary from the tools stage
-COPY --from=tools /usr/local/bin/starship /usr/local/bin/starship
+# Copy the entire Node.js global packages directory
+COPY --from=tools /usr/lib/node_modules /usr/lib/node_modules
 
-# Copy uv binaries and environment from tools stage
-COPY --from=tools /usr/local/bin/uv /usr/local/bin/uv
+# Copy binaries from the tools stage
+COPY --from=tools /usr/bin/ /usr/bin
+COPY --from=tools /usr/local/bin/ /usr/local/bin/
 
 # Copy ruff binary from tools stage
 COPY --from=tools /root/.local/bin/ruff /usr/local/bin/ruff
 
-# Copy fzf binary from tools stage
-COPY --from=tools /usr/local/bin/fzf /usr/local/bin/fzf
 # Vim plug directories
 COPY --from=tools /root/.vim/autoload /root/.vim/autoload
 
@@ -123,29 +121,47 @@ COPY ${DOTFILES_BASENAME}/bash-rc/.terminfo /root/.terminfo
 
 CMD ["/bin/bash"]
 
+# Validate Stage: Ensure .env matches schema and version is correct
+FROM bash AS validate
+LABEL stage="validate"
+LABEL org.opencontainers.image.description="Stage for validating .env schema and version."
+
+ARG DOCKSTATION_VERSION
+ARG ENV_FILE_PATH
+COPY VERSION /tmp/VERSION
+COPY env.schema.json /tmp/env.schema.json
+COPY convert_env_to_json.sh /tmp/convert_env_to_json.sh
+
+RUN set -eux; \
+    env > /tmp/.env; \
+    chmod +x /tmp/convert_env_to_json.sh; \
+    if ! /tmp/convert_env_to_json.sh /tmp/.env; then \
+      echo "❌ ERROR: Failed to convert .env to JSON"; \
+      exit 1; \
+    fi; \
+    # Run JSON Schema validation 
+    ajv validate -s /tmp/env.schema.json -d /tmp/env.json || \
+    (echo "❌ .env validation failed!" && cat /tmp/env.json && exit 1); \
+    # Read the repo's official version from /tmp/VERSION
+    REPO_VERSION="$(cat /tmp/VERSION)"; \
+    # Compare with user-provided version (FAIL FAST)
+    if [ "$REPO_VERSION" != "$DOCKSTATION_VERSION" ]; then \
+      echo "❌ ERROR: .env DOCKSTATION_VERSION=$DOCKSTATION_VERSION, but dockstation/VERSION=$REPO_VERSION. Aborting."; \
+      exit 1; \
+    fi
+
 # Vim Plugins install
-FROM bash AS vim_plugins
+FROM validate AS vim_plugins
 LABEL stage="vim_plugins"
 LABEL org.opencontainers.image.description="Stage for configuring Vim with plugins."
-ARG DOTFILES_BASENAME
 # Copy vim-plug and plugin initialization file
 COPY ${DOTFILES_BASENAME}/vim-rc/custom/plug.vim  /root/.vim/custom/plug.vim
 # Add coc-settings to ~/.vim directory
 COPY ${DOTFILES_BASENAME}/vim-rc/custom/coc-settings.json  /root/.vim/coc-settings.json
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 
-# Install Node.js, npm, and Pyright
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sh && \
-    apt-get install -y nodejs && \
-    npm install -g dockerfile-language-server-nodejs && \
-    npm i -g bash-language-server && \
-    npm install -g @microsoft/compose-language-service && \
-    npm install -g pyright && \
-    rm -rf /var/lib/apt/lists/*
-
-# Make the script executable
+# Load entry point
 RUN chmod +x /usr/local/bin/entrypoint.sh
-
 CMD ["/usr/local/bin/entrypoint.sh"]
 
 # Install Python 3.11 and Jupyter using uv

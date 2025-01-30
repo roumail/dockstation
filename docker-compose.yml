@@ -33,6 +33,37 @@ services:
     working_dir: /root/workspace
     volumes: *dotfiles_and_app_dir 
 
+  # useful for debugging
+  # docker-compose --env-file .env -f /Users/rohailtaimour/home/2_AREAS/work/dockstation/docker-compose.yml build tools --no-cache
+  tools: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+      <<: *build-args
+      target: tools
+    image: rohailt/${DEV_IMAGE_NAME}-tools-debug
+    working_dir: /root/workspace
+    stdin_open: true
+    environment:
+      # where extensions are added
+      XDG_CONFIG_HOME: /coc
+    tty: true
+    volumes: *dotfiles_and_app_dir
+  bash: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+      <<: *build-args
+      target: bash
+    image: rohailt/${DEV_IMAGE_NAME}-bash-debug
+    working_dir: /root/workspace
+    stdin_open: true
+    environment:
+      # where extensions are added
+      XDG_CONFIG_HOME: /coc
+    tty: true
+    volumes: *dotfiles_and_app_dir
+
   vim: 
     build:
       context: .
