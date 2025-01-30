@@ -7,7 +7,6 @@ Vim environment running inside a Docker container.
 While normally there ought to be a single configuration that you use, you do have
 the possibility of having multiple configurations in parallel. See section below: 
 
-
 ## Features
 
 - Vim Configs and Plugins: Pre-configured Vim environment with essential plugins.
@@ -86,3 +85,41 @@ Running Vim inside a container presents challenges for clipboard access between 
 
 2. Bracketed Paste: Use terminal emulators that support bracketed paste (e.g., iTerm2, Alacritty) to allow standard Ctrl/Cmd+C/V operations.
 3. Clipboard Sharing Tools: Explore tools like clipboardctl or xsel that facilitate clipboard sharing between the host and the container.
+
+### Debugging
+
+Use the services `tools` or `bash` to see how you can for example, reduce the 
+image size, diagnose why binaries are not found as expected, etc.  
+
+```yaml
+ # useful for debugging
+  # docker-compose --env-file .env -f /Users/rohailtaimour/home/2_AREAS/work/dockstation/docker-compose.yml build tools --no-cache
+  tools: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+      <<: *build-args
+      target: tools
+    image: rohailt/${DEV_IMAGE_NAME}-tools-debug
+    working_dir: /root/workspace
+    stdin_open: true
+    environment:
+      # where extensions are added
+      XDG_CONFIG_HOME: /coc
+    tty: true
+    volumes: *dotfiles_and_app_dir
+  bash: 
+    build:
+      context: .
+      dockerfile: Dockerfile
+      <<: *build-args
+      target: bash
+    image: rohailt/${DEV_IMAGE_NAME}-bash-debug
+    working_dir: /root/workspace
+    stdin_open: true
+    environment:
+      # where extensions are added
+      XDG_CONFIG_HOME: /coc
+    tty: true
+    volumes: *dotfiles_and_app_dir
+```
