@@ -32,6 +32,12 @@ do
     # Escape double quotes in values
     value=$(echo "$value" | sed 's/"/\\"/g')
 
+    # **Ensure safe environment variable expansion**
+    # One pass isn't enough to handle all cases, 
+    set +u
+    value=$(eval "echo $value")
+    set -u
+
     # Normalize Windows paths to Unix format if detected
     if [[ "$value" =~ ^[A-Za-z]:\\ ]]; then
         value=$(echo "$value" | sed -E 's#\\#/#g' | sed -E 's#([A-Za-z]):#/mnt/\L\1#g')

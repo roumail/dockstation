@@ -127,15 +127,19 @@ LABEL stage="validate"
 LABEL org.opencontainers.image.description="Stage for validating .env schema and version."
 
 ARG DOCKSTATION_VERSION
-ARG ENV_FILE_PATH
+
+ARG ENV_FILE="/tmp/.env_$DEV_IMAGE_NAME"
+
+# Copy the correct .env file based on `DEV_IMAGE_NAME`
+COPY .env_${DEV_IMAGE_NAME} ${ENV_FILE}
+
 COPY VERSION /tmp/VERSION
 COPY env.schema.json /tmp/env.schema.json
 COPY convert_env_to_json.sh /tmp/convert_env_to_json.sh
 
 RUN set -eux; \
-    env > /tmp/.env; \
     chmod +x /tmp/convert_env_to_json.sh; \
-    if ! /tmp/convert_env_to_json.sh /tmp/.env; then \
+    if ! /tmp/convert_env_to_json.sh ${ENV_FILE}; then \
       echo "❌ ERROR: Failed to convert .env to JSON"; \
       exit 1; \
     fi; \
