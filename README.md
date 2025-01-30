@@ -1,12 +1,12 @@
-# Dev env setup
+# Dockstation
 
-This project contains docker-compose files for dev tools like vim and bash. The
-Vim setup, in particular, allows you to open any directory in a pre-configured
-Vim environment running inside a Docker container. This project is designed to
-work alongside the [dotfiles](git@github.com:roumail/dotfiles.git) repo,
-which contains various configuration files. It's expected to be checked
-out next to this project so we can use `..` to reference files within that
-directory.
+This project contains definitions for dev tools like vim, bash and their
+corresponding dotfiles via a submodule pointing to the repository [here](git@github.com:roumail/dotfiles.git). The Vim setup, in particular, allows you to open any directory in a pre-configured
+Vim environment running inside a Docker container. 
+
+While normally there ought to be a single configuration that you use, you do have
+the possibility of having multiple configurations in parallel. See section below: 
+
 
 ## Features
 
@@ -16,89 +16,50 @@ directory.
 - Config Experimentation: Easily experiment with configuration changes or run multiple containers with different configurations.
 - Host-Based Plugin Persistence: Store Vim plugins on the host machine, reducing image size and ensuring persistence across container rebuilds.
 
-## Directory Structure
+The schema of the `.env` is in the `.env.schema.json` file.
 
-Apart from this repository and the dotfiles repository, you typically load the directory you want to work on as well. This folder is specified using a .env file, which expects the following values:
+## Quick Start 
+1. Ensure you have Docker installed on your PC. 
+2. Create a `.env` file inside the project directory you want to mount.
+3. Place the `build_with_env.sh` script in your `$PATH` so you can call it in 
+the directory you want to mount into the containerized environment. 
+4. When building, pass ...
+5. Once build is successful, you're not able to do ...
 
-- HOST_APP_DIR: The path to the project directory on your host machine.
-- BASE_IMAGE: The base Docker image that includes your project dependencies.
-- DEV_IMAGE_NAME: A descriptive name for your development environment image (e.g., vim_env_go_tutorial).
-- PLUGINS_DIR: A directory to hold plugins installed in the container.
-- BASH_HISTORY_FPATH: Path to bash history file for the mounted directory. This
-  follows the convention of ~/bash_histories/${DEV_IMAGE_NAME}-bash_history.
-- DOTFILES_BASENAME: This is the relative path to the directory containing a 
-specific git checkout of your dotfiles repository.
-- DOTFILES_DIR: The path to your dotfiles repository on the host machine. This 
-can be a plain checkout or a git worktree. 
-- VIM_DOTFILES_DIR: Directory within the dotfiles repository containing Vim configuration files.
-- VIM_RC_FPATH: Path to the .vimrc file within the Vim dotfiles directory.
-- VIM_CONFIG_DIR: Path to the .vim/config directory within the Vim dotfiles directory.
 
-```bash
-/path/to/
-├── dev-env-setup/           # This repository
-├── dotfileswt/              # Your dotfiles repository
-└── your-project/            # The project you are working on
-
-```
->NOTE: Do not depend on `~` in your `.env` declarations as those don't always 
-expand appropriately
-
-As a concrete example, if we wanted to host this repo inside a containerized
-vim session, we'd use the following build command:
-`HOST_APP_DIR=$(pwd) docker-compose --env-file .env build vim`
-
-with the `.env`
-
-```bash
-BASE_IMAGE=debian:stable-slim
-DEV_IMAGE_NAME=dev_env_test
-PLUGINS_DIR=~/vim_plugins/
-# Define the basename for the dotfiles directory (relative path from root)
-DOTFILES_BASENAME=dotfileswt/main
-# DOTFILES_BASENAME=dotfileswt/golang-lsp
-# DOTFILES_BASENAME=dotfiles # checkouted out without worktree
-DOTFILES_DIR=/path/to/${DOTFILES_BASENAME}
-VIM_DOTFILES_DIR=${DOTFILES_DIR}/vim-rc
-VIM_RC_FPATH=${VIM_DOTFILES_DIR}/.vimrc
-VIM_CONFIG_DIR=${VIM_DOTFILES_DIR}/.vim/config
-BASH_HISTORY_FPATH=/path/to/bash_histories/${DEV_IMAGE_NAME}-bash
-```
-
-## Quick Start
-
-Clone or copy the `dotfiles` repository to your machine, `next` to this project.
-
-Ensure you have Docker desktop installed. Let's assume we're interested in working
+Let's assume we're interested in working
 with a project checked out here: `/Users/rohailtaimour/home/1_Projects/go-tutorial`
 which has a dependency on `go` version `1.2.4`.
 
 The contents of the `.env` file in this case would be
 
 ```bash
+DOCKSTATION_VERSION=0.0.0
 HOST_APP_DIR=/path/to/go-tutorial
 BASE_IMAGE=golang:1.23.4
 DEV_IMAGE_NAME=go_tutorial
 PLUGINS_DIR=/Users/rohailtaimour/vim_plugins/
-# Define the basename for the dotfiles directory (relative path from root)
-DOTFILES_BASENAME=dotfileswt/golang-lsp
+DOTFILES_BASENAME=dotfiles
 DOTFILES_DIR=/path/to/${DOTFILES_BASENAME}
 VIM_DOTFILES_DIR=${DOTFILES_DIR}/vim-rc
 VIM_RC_FPATH=${VIM_DOTFILES_DIR}/.vimrc
 VIM_CONFIG_DIR=${VIM_DOTFILES_DIR}/.vim/config
 BASH_HISTORY_FPATH=/Users/rohailtaimour/bash_histories/${DEV_IMAGE_NAME}-bash_history
+COC_DATA_DIR=/Users/rohailtaimour/vim-coc
 ```
+
 Then you can go to the project directory and run the build command
+
 ```bash
 cd /path/to/go-tutorial
-docker-compose --env-file .env -f /path/to/dev-env-setup/docker-compose.yml build vim
+build_with_env.sh build
 ```
 
 This would ensure that we're able to have an environment, configured with `Go`
 for our project.
 
 ```bash
-docker-compose --env-file .env -f /path/to/dev-env-setup/docker-compose.yml run --rm vim
+build_with_env.sh run
 ```
 
 The directory `HOST_APP_DIR` will point to the location `/root/workspace` in
@@ -107,6 +68,11 @@ if you have an empty `$PLUGINS_DIR` it will be populated at runtime with the
 result of installing the plugins.
 
 ## Known caveats
+
+### Volume mounts and file paths
+
+> NOTE: Do not depend on `~` in your `.env` declarations as those don't always
+> expand appropriately
 
 ### Clipboard Sync
 
