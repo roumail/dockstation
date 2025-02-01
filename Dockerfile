@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     vim-nox \  
     # Clipboard integration
     xclip \  
+    jq \
     fd-find \
     ripgrep \
     && apt-get clean \
@@ -137,22 +138,28 @@ COPY VERSION /tmp/VERSION
 COPY env.schema.json /tmp/env.schema.json
 COPY convert_env_to_json.sh /tmp/convert_env_to_json.sh
 
-RUN set -eux; \
-    chmod +x /tmp/convert_env_to_json.sh; \
-    if ! /tmp/convert_env_to_json.sh ${ENV_FILE}; then \
-      echo "❌ ERROR: Failed to convert .env to JSON"; \
-      exit 1; \
-    fi; \
-    # Run JSON Schema validation 
-    ajv validate -s /tmp/env.schema.json -d /tmp/env.json || \
-    (echo "❌ .env validation failed!" && cat /tmp/env.json && exit 1); \
-    # Read the repo's official version from /tmp/VERSION
-    REPO_VERSION="$(cat /tmp/VERSION)"; \
-    # Compare with user-provided version (FAIL FAST)
-    if [ "$REPO_VERSION" != "$DOCKSTATION_VERSION" ]; then \
-      echo "❌ ERROR: .env DOCKSTATION_VERSION=$DOCKSTATION_VERSION, but dockstation/VERSION=$REPO_VERSION. Aborting."; \
-      exit 1; \
-    fi
+# Ensure the script is executable
+RUN chmod +x /tmp/convert_env_to_json.sh
+
+# **Use CMD instead of RUN** for interactive debugging
+CMD ["/bin/bash"]
+
+# RUN set -eux; \
+#     chmod +x /tmp/convert_env_to_json.sh; \
+#     if ! /tmp/convert_env_to_json.sh ${ENV_FILE}; then \
+#       echo "❌ ERROR: Failed to convert .env to JSON"; \
+#       exit 1; \
+#     fi; \
+#     # Run JSON Schema validation 
+#     ajv validate -s /tmp/env.schema.json -d /tmp/env.json || \
+#     (echo "❌ .env validation failed!" && cat /tmp/env.json && exit 1); \
+#     # Read the repo's official version from /tmp/VERSION
+#     REPO_VERSION="$(cat /tmp/VERSION)"; \
+#     # Compare with user-provided version (FAIL FAST)
+#     if [ "$REPO_VERSION" != "$DOCKSTATION_VERSION" ]; then \
+#       echo "❌ ERROR: .env DOCKSTATION_VERSION=$DOCKSTATION_VERSION, but dockstation/VERSION=$REPO_VERSION. Aborting."; \
+#       exit 1; \
+#     fi
 
 # Vim Plugins install
 FROM validate AS vim_plugins

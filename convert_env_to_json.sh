@@ -1,5 +1,5 @@
 #!/bin/bash
-set -euo pipefail  # Enable strict error handling
+set -euo pipefail  # Strict error handling
 
 # Ensure an input file is provided
 if [[ -z "${1:-}" ]]; then
@@ -18,38 +18,35 @@ fi
 
 echo "{" > "$JSON_OUTPUT"
 
-# Read .env file, ignore comments and blank lines
-grep -v '^#' "$ENV_FILE" | grep -v '^\s*$' | while IFS='=' read -r key value
-do
-    # Skip malformed lines (no '=' present)
-    if [[ -z "$key" || -z "$value" ]]; then
+# Read .env file, ignoring comments and blank lines
+while IFS='=' read -r key value || [[ -n "$key" ]]; do
+    # Trim whitespace
+    key=$(echo "$key" | xargs)
+    value=$(echo "$value" | xargs)
+
+    # Skip empty keys (malformed lines)
+    if [[ -z "$key" || "$key" =~ ^# || -z "$value" ]]; then
         continue
     fi
 
-    # Remove surrounding quotes if present
+    # Remove surrounding quotes
     value=$(echo "$value" | sed -E 's/^"(.*)"$/\1/')
 
     # Escape double quotes in values
-    value=$(echo "$value" | sed 's/"/\\"/g')
+    value=${value//\"/\\\"}
 
-    # **Ensure safe environment variable expansion**
-    # One pass isn't enough to handle all cases, 
-    set +u
-    value=$(eval "echo $value")
-    set -u
-
-    # Normalize Windows paths to Unix format if detected
+    # Normalize Windows paths (C:\ -> /mnt/c/)
     if [[ "$value" =~ ^[A-Za-z]:\\ ]]; then
         value=$(echo "$value" | sed -E 's#\\#/#g' | sed -E 's#([A-Za-z]):#/mnt/\L\1#g')
     fi
 
-    # Print in JSON format
+    # Append JSON entry
     echo "  \"$key\": \"$value\"," >> "$JSON_OUTPUT"
-done
+done < "$ENV_FILE"
 
-# Remove trailing comma and close JSON object
-sed -i '$ s/,$//' "$JSON_OUTPUT" || sed -i '' '$ s/,$//' "$JSON_OUTPUT"
-echo "}" >> "$JSON_OUTPUT"
+# Remove trailing comma (cross-platform safe)
+truncate -s-2 "$JSON_OUTPUT"
+echo -e "\n}" >> "$JSON_OUTPUT"
 
 # Validate JSON output
 if ! jq empty "$JSON_OUTPUT" >/dev/null 2>&1; then
