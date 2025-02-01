@@ -165,6 +165,8 @@ RUN set -eux; \
 FROM validate AS vim_plugins
 LABEL stage="vim_plugins"
 LABEL org.opencontainers.image.description="Stage for configuring Vim with plugins."
+ARG DOTFILES_BASENAME
+
 # Copy vim-plug and plugin initialization file
 COPY ${DOTFILES_BASENAME}/vim-rc/custom/plug.vim  /root/.vim/custom/plug.vim
 # Add coc-settings to ~/.vim directory
