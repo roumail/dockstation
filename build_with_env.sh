@@ -5,32 +5,31 @@ set -e
 # Script: build_with_env.sh
 # ------------------------------------------------------------------------------
 # Description:
-#   This script automates the process of copying the .env file from the 
-#   current project directory to the Dockstation directory, running a 
-#   Docker build, and cleaning up the copied .env file on failure.
+#   Automates building and running Dockstation services.
 #
 # Usage:
-#   1. Place this script somewhere in your $PATH (e.g., /usr/local/bin)
-#   2. Run the script from the project directory that contains your .env file
-#
-# Example:
-#   $ build_with_env
+#   $ build_with_env.sh build    # Build Vim service
+#   $ build_with_env.sh run      # Run Vim service
 #
 # Installation:
 #   1. Make the script executable:
 #      chmod +x build_with_env.sh
-#   2. Move it to a directory in your $PATH (e.g., /usr/local/bin for Mac/Linux):
+#   2. Move it to $PATH:
 #      mv build_with_env.sh /usr/local/bin/build_with_env
-#   3. Run the script from your project directory:
-#      build_with_env
-#
-# How it Works:
+#  How it Works:
 #   - Extracts DEV_IMAGE_NAME from the .env file.
 #   - Copies .env to Dockstation with a unique name: `.env_DEV_IMAGE_NAME`.
 #   - Runs `docker-compose build` using the copied .env file.
 #   - Cleans up the copied .env file after a successful build.
 #   - If the build fails, it removes the copied file and exits with an error.
 # ------------------------------------------------------------------------------
+
+# Ensure a command is provided (build or run)
+COMMAND="${1:-}"
+if [[ -z "$COMMAND" ]]; then
+    echo "❌ ERROR: No command provided. Use 'build' or 'run'."
+    exit 1
+fi
 
 # Get the current directory where the script is executed
 HOST_APP_DIR="$PWD"
@@ -45,6 +44,7 @@ if [[ ! -f "$HOST_ENV_FILE" ]]; then
     echo "❌ ERROR: No .env file found in $HOST_APP_DIR"
     exit 1
 fi
+ 
 
 # Extract DEV_IMAGE_NAME from .env file
 DEV_IMAGE_NAME=$(grep "^DEV_IMAGE_NAME=" "$HOST_ENV_FILE" | cut -d '=' -f2 | tr -d '"')
@@ -66,11 +66,21 @@ cp "$HOST_ENV_FILE" "$ENV_COPY"
 
 echo "✅ Copied .env file to: $ENV_COPY"
 
-# Run Docker Compose Build with the copied .env file
-if ! docker-compose --env-file "$ENV_COPY" -f "$DOCKER_COMPOSE_FILE" build vim; then
-    echo "❌ Build failed. Cleaning up..."
-    rm -f "$ENV_COPY"
-    exit 1
+# Perform the requested command
+if [[ "$COMMAND" == "build" ]]; then
+    echo "🚀 Building Vim Service..."
+    if ! docker-compose --env-file "$ENV_COPY" -f "$DOCKER_COMPOSE_FILE" build vim; then
+        echo "❌ Build failed. Cleaning up..."
+        rm -f "$ENV_COPY"
+        exit 1
+    fi
+else 
+    echo "🚀 Running Vim Service..."
+    if ! docker-compose --env-file "$ENV_COPY" -f "$DOCKER_COMPOSE_FILE" run --rm vim; then
+        echo "❌ Run failed. Cleaning up..."
+        rm -f "$ENV_COPY"
+        exit 1
+    fi
 fi
 
 # Remove the copied .env file only if the build was successful
